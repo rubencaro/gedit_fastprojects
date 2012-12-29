@@ -1,10 +1,10 @@
 [Plugin]
 Loader=python
-Module=grepint
+Module=fastprojects
 IAge=3
-Name=Grepint
-Description=Grep interface
+Name=Fastprojects
+Description=Quick access to projects
 Authors=Rubén Caro <ruben.caro@lanuez.org>
 Copyright=Copyright © 2012 Rubén Caro <ruben.caro@lanuez.org>
-Website=http://github.com/rubencaro/gedit_grepint
+Website=http://github.com/rubencaro/gedit_fastprojects
 Version=1.0.0

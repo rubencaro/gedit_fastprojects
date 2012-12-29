@@ -18,3 +18,5 @@ No mouse needed.
 Uses __\<Ctrl\><Alt>P__ accelerator.
 
 Roughly based on https://github.com/rubencaro/gedit_grepint
+
+Maybe some day it will remember last opened files for a project.

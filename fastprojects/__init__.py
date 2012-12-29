@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-#  Grepint plugin for gedit
+#  Fastprojects plugin for gedit
 #
 #  Copyright (C) 2012-2013 Rubén Caro
 #
@@ -23,25 +23,19 @@ import tempfile
 import time
 import string
 
-max_result = 50
-app_string = "Grepint"
+app_string = "Fastprojects"
 
 # essential interface
-class GrepintPluginInstance:
+class FastprojectsPluginInstance:
     def __init__( self, plugin, window ):
         self._window = window
         self._plugin = plugin
         self._dirs = [] # to be filled
-        glob_excludes = ['*.log','*~','*.swp']
-        dir_excludes = ['.git','.svn','log']
-        self._excludes = '--exclude=' + ' --exclude='.join(glob_excludes)
-        self._excludes += '--exclude-dir=' + ' --exclude-dir='.join(dir_excludes)
-        self._tmpfile = os.path.join(tempfile.gettempdir(), 'grepint.%s.%s' % (os.getuid(),os.getpid()))
+        self._tmpfile = os.path.join(tempfile.gettempdir(), 'fastprojects.%s.%s' % (os.getuid(),os.getpid()))
         self._show_hidden = False
         self._liststore = None;
         self._init_ui()
         self._insert_menu()
-        self._single_file_grep = True
 
     def deactivate( self ):
         self._remove_menu()
@@ -60,23 +54,12 @@ class GrepintPluginInstance:
     # MENU STUFF
     def _insert_menu( self ):
         manager = self._window.get_ui_manager()
-        # replace keybindings from main window
-        for ag in manager.get_action_groups():
-            if ag.get_name() == 'GeditWindowActions':
-                for ac in ag.list_actions():
-                    if ac.get_name() in ['SearchFindNext','SearchFindPrevious']:
-                        ac.disconnect_accelerator()
-                break
 
-#        self._action_group = Gtk.ActionGroup( "GeditWindowActions" )
-        self._action_group = Gtk.ActionGroup( "GrepintPluginActions" )
+        self._action_group = Gtk.ActionGroup( "FastprojectsPluginActions" )
         self._action_group.add_actions([
-            ("GrepintFileAction", Gtk.STOCK_FIND, "Grep on file...",
-             '<Ctrl>G', "Grep on file",
-             lambda a: self.on_grepint_file_action()),
-            ("GrepintProjectAction", Gtk.STOCK_FIND, "Grep on project...",
-             '<Ctrl><Shift>G', "Grep on project",
-             lambda a: self.on_grepint_project_action()),
+            ("FastprojectsFileAction", Gtk.STOCK_FIND, "Open project...",
+             '<Ctrl><Alt>P', "Open project",
+             lambda a: self.on_fastprojects_file_action())
         ])
 
         manager.insert_action_group(self._action_group)
@@ -84,10 +67,9 @@ class GrepintPluginInstance:
         ui_str = """
           <ui>
             <menubar name="MenuBar">
-              <menu name="SearchMenu" action="Search">
+              <menu name="FileMenu" action="File">
                 <placeholder name="SearchOps_7">
-                  <menuitem name="GrepintF" action="GrepintFileAction"/>
-                  <menuitem name="GrepintP" action="GrepintProjectAction"/>
+                  <menuitem name="FastprojectsF" action="FastprojectsFileAction"/>
                 </placeholder>
               </menu>
             </menubar>
@@ -104,18 +86,18 @@ class GrepintPluginInstance:
 
     # UI DIALOGUES
     def _init_ui( self ):
-        filename = os.path.dirname( __file__ ) + "/grepint.ui"
+        filename = os.path.dirname( __file__ ) + "/fastprojects.ui"
         self._builder = Gtk.Builder()
         self._builder.add_from_file(filename)
 
         #setup window
-        self._grepint_window = self._builder.get_object('GrepintWindow')
-        self._grepint_window.connect("key-release-event", self.on_window_key)
-        self._grepint_window.set_transient_for(self._window)
+        self._fastprojects_window = self._builder.get_object('FastprojectsWindow')
+        self._fastprojects_window.connect("key-release-event", self.on_window_key)
+        self._fastprojects_window.set_transient_for(self._window)
 
         #setup buttons
         self._builder.get_object( "ok_button" ).connect( "clicked", self.open_selected_item )
-        self._builder.get_object( "cancel_button" ).connect( "clicked", lambda a: self._grepint_window.hide())
+        self._builder.get_object( "cancel_button" ).connect( "clicked", lambda a: self._fastprojects_window.hide())
 
         #setup entry field
         self._glade_entry_name = self._builder.get_object( "entry_name" )
@@ -130,20 +112,11 @@ class GrepintPluginInstance:
         self._hit_list.set_model(self._liststore)
         self._column1 = Gtk.TreeViewColumn("Name" , Gtk.CellRendererText(), text=0)
         self._column1.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
-        self._column2 = Gtk.TreeViewColumn("File", Gtk.CellRendererText(), text=1)
+        self._column2 = Gtk.TreeViewColumn("Folder", Gtk.CellRendererText(), text=1)
         self._column2.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
         self._hit_list.append_column(self._column1)
         self._hit_list.append_column(self._column2)
         self._hit_list.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
-
-        # more widgets
-        self._label_info = self._builder.get_object( "label_info" )
-        self._use_fb = self._builder.get_object("check_fb").get_active
-        self._action_fb = self._builder.get_object("action_fb")
-        self._use_git = self._builder.get_object("check_git").get_active
-        self._action_git = self._builder.get_object("action_git")
-        self._use_rvm = self._builder.get_object("check_rvm").get_active
-        self._action_rvm = self._builder.get_object("action_rvm")
 
 
     #mouse event on list
@@ -155,11 +128,6 @@ class GrepintPluginInstance:
     def on_select_from_list(self, widget, event):
         self.open_selected_item(event)
 
-    # updates GUI with 'searching' notices
-    def show_searching( self ):
-        self._liststore.append(["Searching...",""])
-        self._grepint_window.set_title("Searching ... ")
-
     #keyboard event on entry field
     def on_pattern_entry( self, widget, event ):
 
@@ -169,49 +137,30 @@ class GrepintPluginInstance:
             if event.keyval in [Gdk.KEY_Up,Gdk.KEY_Down]:
                 self._hit_list.grab_focus()
                 return
-            # require press enter when searching on project
-            if (not (event.keyval == Gdk.KEY_Return or event.keyval == Gdk.KEY_KP_Enter)) and not self._single_file_grep:
-                return
-
-        # add every other path if on project mode
-        if not self._single_file_grep:
-            self.calculate_project_paths()
 
         pattern = self._glade_entry_name.get_text()
         pattern = pattern.replace(" ",".*")
         cmd = ""
-        if self._show_hidden:
-            filefilter = ""
 
         self._liststore.clear()
 
-        if self._single_file_grep:
-            if len(pattern) > 0:
-                cmd = "grep -inH -m %d -e '%s' '%s' 2> /dev/null" % (max_result, pattern, self._current_file)
-            else:
-                self._grepint_window.set_title("Enter pattern ... ")
-                return
+        if len(pattern) > 0:
+            cmd = "grep -i -m %d -e '%s' '%s' 2> /dev/null" % (max_result, pattern, self._tmpfile)
         else:
-            if len(pattern) > 3:
-                cmd = "grep -inHRI -D skip -m %d %s -e '%s' %s 2> /dev/null" % (max_result, self._excludes, pattern, self.get_dirs_string())
-            else:
-                self._grepint_window.set_title("Enter pattern (3 chars min)... ")
-                return
-        self.show_searching()
-        GLib.idle_add(self.do_search,cmd)
+            self._fastprojects_window.set_title("Enter pattern ... ")
+            return
 
-    def do_search( self,cmd ):
         self._liststore.clear()
         maxcount = 0
         print cmd
-        self._label_info.set_text(cmd)
         hits = os.popen(cmd).readlines()
         for hit in hits:
+
+        # ---------------------------------------------------
             parts = hit.split(':')
             path,line = parts[0:2]
             text = ':'.join(parts[2:])[:160].replace("\n",'').strip()
             name = os.path.basename(path)
-            # TODO: center text on hit using regex pattern
             item = []
             if self._single_file_grep:
                 item = [line, text]
@@ -226,7 +175,7 @@ class GrepintPluginInstance:
             new_title = "> %d hits" % max_result
         else:
             new_title = "%d hits" % maxcount
-        self._grepint_window.set_title(new_title)
+        self._fastprojects_window.set_title(new_title)
 
         selected = []
         self._hit_list.get_selection().selected_foreach(self.foreach, selected)
@@ -238,65 +187,6 @@ class GrepintPluginInstance:
 
         return False
 
-    def get_git_base_dir( self, path ):
-        """ Get git base dir if given path is inside a git repo. None otherwise. """
-        try:
-            cmd = "cd '%s'; git rev-parse --show-toplevel 2> /dev/null" % path
-            print cmd
-            gitdir = os.popen(cmd).readlines()
-        except:
-            gitdir = ''
-        if len(gitdir) > 0:
-            return gitdir[0].replace("\n","")
-        return None
-
-    def map_to_git_base_dirs( self ):
-        """ Replace paths with respective git repo base dirs if it exists """
-        # use git repo base dir is more suitable if we are inside a git repo, for any dir we have guessed before
-        dirs = []
-        for d in self._dirs:
-            gitdir = self.get_git_base_dir(d)
-            if gitdir is None:
-                dirs.append(d)
-            else:
-                dirs.append(gitdir)
-        self._dirs = set(dirs)
-        # we could have introduced duplicates here
-        self.ensure_unique_entries()
-
-    def add_rvm_gemset_dirs( self ):
-        """ Append every rvm gemset dir detected for current dir list """
-        gemsets = []
-        for d in self._dirs:
-            cmd = "/bin/bash -l -c 'source $HOME/.rvm/scripts/rvm &> /dev/null; cd '%s' &> /dev/null; gem env gemdir'" % d
-            print cmd
-            try:
-                gemset = os.popen(cmd).readlines()
-            except:
-                gemset = ''
-            if len(gemset) > 0:
-                gemsets.append( gemset[0].replace("\n","") )
-        self._dirs.update(gemsets)
-
-    def ensure_unique_entries( self ):
-        """ Remove duplicates from dirs list """
-        # this also looks for paths already included in other paths
-        unique = []
-        for d in self._dirs:
-            d = d.replace("file://","").replace("//","/")
-            should_append = True
-            for i,u in enumerate(unique): # replace everyone with its wider parent
-                if u in d: # already this one, or a parent
-                    should_append = False
-                elif d in u: # replace with the parent
-                    unique[i] = d
-                    should_append = False
-
-            if should_append:
-                unique.append(d)
-
-        self._dirs = set(unique)
-
     def get_dirs_string( self ):
         """ Gets the quoted string built with dir list, ready to be passed on to 'find' """
         string = ''
@@ -306,88 +196,31 @@ class GrepintPluginInstance:
 
     def status( self,msg ):
         statusbar = self._window.get_statusbar()
-        statusbar_ctxtid = statusbar.get_context_id('Grepint')
-        statusbar.push(statusbar_ctxtid,msg)
+        statusbar_ctxtid = statusbar.get_context_id('Fastprojects')
+        if len(msg) == 0:
+            statusbar.pop(statusbar_ctxtid)
+        else:
+            statusbar.push(statusbar_ctxtid,msg)
 
     #on menuitem activation (incl. shortcut)
-    def on_grepint_file_action( self ):
-        self._single_file_grep = True
-        self.show_popup()
-
-    def on_grepint_project_action( self ):
-        self._single_file_grep = False
-        self.show_popup()
-
-    def show_popup( self ):
+    def on_fastprojects_file_action( self ):
         self._init_ui()
 
-        doc = self._window.get_active_document()
-        location = doc.get_location()
-        if location and doc.is_local():
-            self._current_file = location.get_uri().replace("file://","").replace("//","/")
-        elif self._single_file_grep:
-            # cannot do void or remote files
-            return
+        self.calculate_project_paths()
 
-        if self._single_file_grep:
-            self._grepint_window.set_size_request(600,400)
-            self._column1.set_title('Line')
-            self._column2.set_title('Text')
-            self._action_fb.set_sensitive(False)
-            self._action_git.set_sensitive(False)
-            self._action_rvm.set_sensitive(False)
-        else:
-            self._grepint_window.set_size_request(900,400)
-            self._column1.set_title('Match')
-            self._column2.set_title('File path')
-            self._action_fb.set_sensitive(True)
-            self._action_git.set_sensitive(True)
-            self._action_rvm.set_sensitive(True)
-
-        self._grepint_window.show()
-        if doc and doc.get_selection_bounds():
-            start, end = doc.get_selection_bounds()
-            self._glade_entry_name.set_text( doc.get_text(start, end, True) )
-	    self.on_pattern_entry(None,None)
+        self._fastprojects_window.show()
         self._glade_entry_name.select_region(0,-1)
         self._glade_entry_name.grab_focus()
 
     def calculate_project_paths( self ):
         # build paths list
         self._dirs = set()
-
-        # append current local open files dirs
-        for doc in self._window.get_documents():
-            location = doc.get_location()
-            if location and doc.is_local():
-                self._dirs.add( location.get_parent().get_uri() )
-
-        # append filebrowser root if available
-        if self._use_fb():
-          fbroot = self.get_filebrowser_root()
-          if fbroot != "" and fbroot is not None:
-              self._dirs.add(fbroot)
-
-        # ensure_unique_entries is executed after mapping to git base dir
-        # but it's cheaper, then do it before too, avoiding extra work
-        self.ensure_unique_entries()
-
-        # replace each path with its git base dir if exists
-        if self._use_git():
-            self.map_to_git_base_dirs()
-
-        # add every rvm gemset associated with each dir we got
-        if self._use_rvm():
-            self.add_rvm_gemset_dirs()
-
-        # append gedit dir (usually too wide for a quick search) if we have nothing so far
-        if len(self._dirs) == 0:
-            self._dirs = [ os.getcwd() ]
+        # find .git folders within configured paths
 
     #on any keyboard event in main window
     def on_window_key( self, widget, event ):
         if event.keyval == Gdk.KEY_Escape:
-            self._grepint_window.hide()
+            self._fastprojects_window.hide()
 
     def foreach(self, model, path, iter, selected):
         match = ''
@@ -442,7 +275,7 @@ class GrepintPluginInstance:
         for item in items:
             path,line = item.split(':')
             self._open_document( path,int(line),1 )
-        self._grepint_window.hide()
+        self._fastprojects_window.hide()
 
     # FILEBROWSER integration
     def get_filebrowser_root(self):
@@ -462,9 +295,9 @@ class GrepintPluginInstance:
             return root
 
 # STANDARD PLUMMING
-class GrepintPlugin(GObject.Object, Gedit.WindowActivatable):
-    __gtype_name__ = "GrepintPlugin"
-    DATA_TAG = "GrepintPluginInstance"
+class FastprojectsPlugin(GObject.Object, Gedit.WindowActivatable):
+    __gtype_name__ = "FastprojectsPlugin"
+    DATA_TAG = "FastprojectsPluginInstance"
 
     window = GObject.property(type=Gedit.Window)
 
@@ -478,7 +311,7 @@ class GrepintPlugin(GObject.Object, Gedit.WindowActivatable):
         self.window.set_data( self.DATA_TAG, instance )
 
     def do_activate( self ):
-        self._set_instance( GrepintPluginInstance( self, self.window ) )
+        self._set_instance( FastprojectsPluginInstance( self, self.window ) )
 
     def do_deactivate( self ):
         self._get_instance().deactivate()
