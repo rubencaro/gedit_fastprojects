@@ -197,9 +197,13 @@ class FastprojectsPluginInstance:
         f = open(self._tmpfile,'w')
         try:
             # find .git folders within configured paths
-            for dirname, dirnames, filenames in os.walk('/home/ruben/Documentos'):
+            for dirname, dirnames, filenames in os.walk(os.path.expanduser("~"), followlinks=True):
                 if '.git' in dirnames:
                     f.write(dirname + '\n')
+                # remove hidden folders
+                for d in dirnames:
+                    if d.startswith('.'):
+                        dirnames.remove(d)
         finally:
             f.close()
 
