@@ -28,21 +28,8 @@ app_string = "Fastprojects"
 def spit( *obj ):
     print str(obj)
 
-if hasattr(Gedit.MessageBus, 'send'):
-    def send_message(window, object_path, method, **kwargs):
-        return window.get_message_bus().send(object_path, method, **kwargs)
-else:
-    # For installations that do not have the Gedit.py override file
-    def send_message(window, object_path, method, **kwargs):
-        bus = window.get_message_bus()
-        tp = bus.lookup(object_path, method)
-        if not tp.is_a(Gedit.Message.__gtype__):
-            return None
-        kwargs['object-path'] = object_path
-        kwargs['method'] = method
-        msg = GObject.new(tp, **kwargs)
-        bus.send_message(msg)
-        return msg
+def send_message(window, object_path, method, **kwargs):
+    return window.get_message_bus().send_sync(object_path, method, **kwargs)
 
 # essential interface
 class FastprojectsPluginInstance:
@@ -240,7 +227,7 @@ class FastprojectsPluginInstance:
         window.show()
         # cambiar root del filebrowser
         location = Gio.File.new_for_path(path)
-        send_message(window, '/plugins/filebrowser', 'set_root', location=location) 
+        send_message(window, '/plugins/filebrowser', 'set_root', location=location)
 
 # STANDARD PLUMMING
 class FastprojectsPlugin(GObject.Object, Gedit.WindowActivatable):
