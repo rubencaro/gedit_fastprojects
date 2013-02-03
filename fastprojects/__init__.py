@@ -25,6 +25,25 @@ import string
 
 app_string = "Fastprojects"
 
+def spit( *obj ):
+    print str(obj)
+
+if hasattr(Gedit.MessageBus, 'send'):
+    def send_message(window, object_path, method, **kwargs):
+        return window.get_message_bus().send(object_path, method, **kwargs)
+else:
+    # For installations that do not have the Gedit.py override file
+    def send_message(window, object_path, method, **kwargs):
+        bus = window.get_message_bus()
+        tp = bus.lookup(object_path, method)
+        if not tp.is_a(Gedit.Message.__gtype__):
+            return None
+        kwargs['object-path'] = object_path
+        kwargs['method'] = method
+        msg = GObject.new(tp, **kwargs)
+        bus.send_message(msg)
+        return msg
+
 # essential interface
 class FastprojectsPluginInstance:
     def __init__( self, plugin, window ):
@@ -47,9 +66,6 @@ class FastprojectsPluginInstance:
 
     def update_ui( self ):
         return
-
-    def spit(*obj):
-        print str(obj)
 
     # MENU STUFF
     def _insert_menu( self ):
@@ -145,7 +161,7 @@ class FastprojectsPluginInstance:
         self._liststore.clear()
 
         if len(pattern) > 0:
-            cmd = "grep -i -m %d -e '%s' '%s' 2> /dev/null" % (max_result, pattern, self._tmpfile)
+            cmd = "grep -i -e '%s' '%s' 2> /dev/null" % (pattern, self._tmpfile)
         else:
             self._fastprojects_window.set_title("Enter pattern ... ")
             return
@@ -154,28 +170,12 @@ class FastprojectsPluginInstance:
         maxcount = 0
         print cmd
         hits = os.popen(cmd).readlines()
+        spit(hits)
         for hit in hits:
-
-        # ---------------------------------------------------
-            parts = hit.split(':')
-            path,line = parts[0:2]
-            text = ':'.join(parts[2:])[:160].replace("\n",'').strip()
-            name = os.path.basename(path)
-            item = []
-            if self._single_file_grep:
-                item = [line, text]
-            else:
-                item = [name + ":" + line + ": " + text, path + ":" + line]
+            path = hit.replace("\n",'').strip()
+            name = path.split('/')[-1]
+            item = [name,path]
             self._liststore.append(item)
-
-            if maxcount > max_result:
-                break
-            maxcount = maxcount + 1
-        if maxcount > max_result:
-            new_title = "> %d hits" % max_result
-        else:
-            new_title = "%d hits" % maxcount
-        self._fastprojects_window.set_title(new_title)
 
         selected = []
         self._hit_list.get_selection().selected_foreach(self.foreach, selected)
@@ -186,13 +186,6 @@ class FastprojectsPluginInstance:
                 self._hit_list.get_selection().select_iter(iter)
 
         return False
-
-    def get_dirs_string( self ):
-        """ Gets the quoted string built with dir list, ready to be passed on to 'find' """
-        string = ''
-        for d in self._dirs:
-            string += "'%s' " % d
-        return string
 
     def status( self,msg ):
         statusbar = self._window.get_statusbar()
@@ -214,8 +207,15 @@ class FastprojectsPluginInstance:
 
     def calculate_project_paths( self ):
         # build paths list
-        self._dirs = set()
-        # find .git folders within configured paths
+        f = open(self._tmpfile,'w')
+        try:
+            # find .git folders within configured paths
+            for dirname, dirnames, filenames in os.walk('/home/ruben/Documentos'):
+                if '.git' in dirnames:
+                    f.write(dirname + '\n')
+        finally:
+            f.close()
+
 
     #on any keyboard event in main window
     def on_window_key( self, widget, event ):
@@ -223,76 +223,24 @@ class FastprojectsPluginInstance:
             self._fastprojects_window.hide()
 
     def foreach(self, model, path, iter, selected):
-        match = ''
-        if self._single_file_grep:
-            match = self._current_file + ':' + model.get_value(iter, 0)
-        else:
-            match = model.get_value(iter, 1)
-        selected.append(match)
-
-    def _open_document(self, filename, line, column):
-        """ open a the file specified by filename at the given line and column
-        number. Line and column numbering starts at 1. """
-
-        if line == 0:
-            raise ValueError, "line and column numbers start at 1"
-
-        location = Gio.File.new_for_uri("file:///" + filename)
-        tab = self._window.get_tab_from_location(location)
-        if tab is None:
-            tab = self._window.create_tab_from_location(location, None,
-                                            line, column+1, False, True)
-            view = tab.get_view()
-        else:
-            view = self._set_active_tab(tab, line, column)
-        GLib.idle_add(view.grab_focus)
-        return tab
-
-    def _set_active_tab(self, tab, lineno, offset):
-        self._window.set_active_tab(tab)
-        view = tab.get_view()
-        if lineno > 0:
-            doc = tab.get_document()
-            doc.goto_line(lineno - 1)
-            cur_iter = doc.get_iter_at_line(lineno-1)
-            linelen = cur_iter.get_chars_in_line() - 1
-            if offset >= linelen:
-                cur_iter.forward_to_line_end()
-            elif offset > 0:
-                cur_iter.set_line_offset(offset)
-            elif offset == 0 and self.options.smart_home_end == 'before':
-                cur_iter.set_line_offset(0)
-                while cur_iter.get_char().isspace() and cur_iter.forward_char():
-                    pass
-            doc.place_cursor(cur_iter)
-            view.scroll_to_cursor()
-        return view
+        selected.append( model.get_value(iter, 1) )
 
     #open file in selection and hide window
     def open_selected_item( self, event ):
         items = []
         self._hit_list.get_selection().selected_foreach(self.foreach, items)
         for item in items:
-            path,line = item.split(':')
-            self._open_document( path,int(line),1 )
+            self.open_project(item)
         self._fastprojects_window.hide()
 
-    # FILEBROWSER integration
-    def get_filebrowser_root(self):
-        base = u'org.gnome.gedit.plugins.filebrowser'
-
-        settings = Gio.Settings.new(base)
-        root = settings.get_string('virtual-root')
-
-        if root is not None:
-            filter_mode = settings.get_strv('filter-mode')
-
-            if 'hide-hidden' in filter_mode:
-                self._show_hidden = False
-            else:
-                self._show_hidden = True
-
-            return root
+    def open_project( self, path ):
+        spit('open '+ path)
+        # abrir nueva ventana
+        window = Gedit.App.get_default().create_window(None)
+        window.show()
+        # cambiar root del filebrowser
+        location = Gio.File.new_for_path(path)
+        send_message(window, '/plugins/filebrowser', 'set_root', location=location) 
 
 # STANDARD PLUMMING
 class FastprojectsPlugin(GObject.Object, Gedit.WindowActivatable):
