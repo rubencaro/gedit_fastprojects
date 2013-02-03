@@ -124,7 +124,7 @@ class FastprojectsPluginInstance:
 
     #mouse event on list
     def on_list_mouse( self, widget, event ):
-        if event.type == gtk.gdk._2BUTTON_PRESS:
+        if event.type == Gdk.EventType._2BUTTON_PRESS:
             self.open_selected_item( event )
 
     #key selects from list (passthrough 3 args)
