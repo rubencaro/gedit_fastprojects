@@ -15,7 +15,7 @@ or navigate through the hits list with up/down keys.
 Go there pressing enter on selected result.
 No mouse needed.
 
-Uses __\<Ctrl\><Alt>P__ accelerator.
+Uses __\<Ctrl\>\<Alt\>P__ accelerator.
 
 Roughly based on https://github.com/rubencaro/gedit_grepint
 
