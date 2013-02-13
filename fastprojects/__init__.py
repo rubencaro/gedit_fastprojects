@@ -201,9 +201,9 @@ class FastprojectsPluginInstance:
                 if '.git' in dirnames:
                     f.write(dirname + '\n')
                 # remove hidden folders
-                for d in dirnames:
-                    if d.startswith('.'):
-                        dirnames.remove(d)
+                hidden = [d for d in dirnames if d.startswith('.')]
+                for d in hidden:
+                    dirnames.remove(d)
         finally:
             f.close()
 
