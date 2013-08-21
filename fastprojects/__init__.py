@@ -244,10 +244,10 @@ class FastprojectsPlugin(GObject.Object, Gedit.WindowActivatable):
         GObject.Object.__init__(self)
 
     def _get_instance( self ):
-        return self.window.get_data( self.DATA_TAG )
+        return self.window.DATA_TAG
 
     def _set_instance( self, instance ):
-        self.window.set_data( self.DATA_TAG, instance )
+        self.window.DATA_TAG = instance
 
     def do_activate( self ):
         self._set_instance( FastprojectsPluginInstance( self, self.window ) )
