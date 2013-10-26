@@ -100,7 +100,7 @@ class FastprojectsPluginInstance:
 
         #setup buttons
         self._builder.get_object( "ok_button" ).connect( "clicked", self.open_selected_item )
-        self._builder.get_object( "cancel_button" ).connect( "clicked", lambda a: self._fastprojects_window.hide())
+        self._builder.get_object( "refresh_button" ).connect( "clicked", lambda a: self.calculate_project_paths(notify=True) )
 
         #setup entry field
         self._glade_entry_name = self._builder.get_object( "entry_name" )
@@ -187,7 +187,11 @@ class FastprojectsPluginInstance:
         self._init_ui()
         self._fastprojects_window.show()
 
-    def calculate_project_paths( self ):
+    def calculate_project_paths( self, notify = False ):
+        if notify:
+          self._glade_entry_name.set_text('Calculating paths...')
+          while Gtk.events_pending():
+            Gtk.main_iteration()
         # build paths list
         f = open(self._tmpfile,'w')
         try:
