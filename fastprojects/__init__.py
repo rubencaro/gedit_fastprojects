@@ -18,7 +18,6 @@
 
 from gi.repository import GObject, Gedit, Gtk, Gio, Gdk, GLib
 import os, os.path
-from urllib import pathname2url
 import tempfile
 import time
 import string
@@ -26,7 +25,7 @@ import string
 app_string = "Fastprojects"
 
 def spit( *obj ):
-    print str(obj)
+    print(str(obj))
 
 def send_message(window, object_path, method, **kwargs):
     return window.get_message_bus().send_sync(object_path, method, **kwargs)
@@ -155,7 +154,7 @@ class FastprojectsPluginInstance:
 
         self._liststore.clear()
         maxcount = 0
-        print cmd
+        print(cmd)
         hits = os.popen(cmd).readlines()
         spit(hits)
         for hit in hits:
