@@ -21,6 +21,7 @@ import os, os.path
 import tempfile
 import time
 import string
+from multiprocessing import Process
 
 app_string = "Fastprojects"
 
@@ -184,11 +185,7 @@ class FastprojectsPluginInstance:
     #on menuitem activation (incl. shortcut)
     def on_fastprojects_file_action( self ):
         self._init_ui()
-
         self._fastprojects_window.show()
-        self._glade_entry_name.set_text('Calculating project paths...')
-
-        self.calculate_project_paths()
 
     def calculate_project_paths( self ):
         # build paths list
@@ -250,7 +247,10 @@ class FastprojectsPlugin(GObject.Object, Gedit.WindowActivatable):
         self.window.DATA_TAG = instance
 
     def do_activate( self ):
-        self._set_instance( FastprojectsPluginInstance( self, self.window ) )
+        instance = FastprojectsPluginInstance( self, self.window )
+        self._set_instance( instance )
+        p = Process(target=instance.calculate_project_paths)
+        p.start()
 
     def do_deactivate( self ):
         if self._get_instance():
