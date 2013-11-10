@@ -22,6 +22,7 @@ import tempfile
 import time
 import string
 from multiprocessing import Process
+import json
 
 app_string = "Fastprojects"
 
@@ -42,6 +43,9 @@ class FastprojectsPluginInstance:
         self._liststore = None;
         self._init_ui()
         self._insert_menu()
+        dirname = os.path.dirname( __file__ )
+        self._config = json.load( open(dirname + '/config.json') )
+        self._projects_base_path = self._config['projects_base_path']
 
     def deactivate( self ):
         self._remove_menu()
@@ -196,7 +200,7 @@ class FastprojectsPluginInstance:
         f = open(self._tmpfile,'w')
         try:
             # find .git folders within configured paths
-            for dirname, dirnames, filenames in os.walk(os.path.expanduser("~"), followlinks=True):
+            for dirname, dirnames, filenames in os.walk(os.path.expanduser(self._projects_base_path), followlinks=True):
                 if '.git' in dirnames:
                     f.write(dirname + '\n')
                 # remove hidden folders
