@@ -234,6 +234,7 @@ class FastprojectsPluginInstance:
         # abrir nueva ventana
         window = Gedit.App.get_default().create_window(None)
         window.show()
+        window.present()
         # cambiar root del filebrowser
         location = Gio.File.new_for_path(path)
         send_message(window, '/plugins/filebrowser', 'set_root', location=location)
