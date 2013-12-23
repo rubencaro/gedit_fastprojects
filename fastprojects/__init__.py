@@ -230,7 +230,6 @@ class FastprojectsPluginInstance:
         self._fastprojects_window.hide()
 
     def open_project( self, path ):
-        spit('open '+ path)
         # abrir nueva ventana
         window = Gedit.App.get_default().create_window(None)
         window.show()
