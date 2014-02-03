@@ -1,4 +1,4 @@
 {
   "projects_base_path" : "~",
-  "project_marker_files" : [".git", ".hg", ".bzr", ".svn", "CVS"]
+  "project_marker_files" : [".git", ".hg", ".bzr"]
 }
