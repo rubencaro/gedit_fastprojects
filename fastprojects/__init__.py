@@ -46,6 +46,7 @@ class FastprojectsPluginInstance:
         dirname = os.path.dirname( __file__ )
         self._config = json.load( open(dirname + '/config.json') )
         self._projects_base_path = self._config['projects_base_path']
+        self._project_marker_files = self._config['project_marker_files']
 
     def deactivate( self ):
         self._remove_menu()
@@ -191,6 +192,12 @@ class FastprojectsPluginInstance:
         self._init_ui()
         self._fastprojects_window.show()
 
+    def _contains_marker_file(self, dirnames):
+        for marker in self._project_marker_files:
+            if marker in dirnames:
+                return True
+        return False
+
     def calculate_project_paths( self, notify = False ):
         if notify:
           self._glade_entry_name.set_text('Calculating paths...')
@@ -199,9 +206,9 @@ class FastprojectsPluginInstance:
         # build paths list
         f = open(self._tmpfile,'w')
         try:
-            # find .git folders within configured paths
+            # find project marker folders within configured paths
             for dirname, dirnames, filenames in os.walk(os.path.expanduser(self._projects_base_path), followlinks=True):
-                if '.git' in dirnames:
+                if self._contains_marker_file(dirnames):
                     f.write(dirname + '\n')
                 # remove hidden folders
                 hidden = [d for d in dirnames if d.startswith('.')]
